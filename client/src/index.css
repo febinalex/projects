@@ -1,0 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(210 25% 7.8431%);
+  --card: hsl(180 6.6667% 97.0588%);
+  --card-foreground: hsl(210 25% 7.8431%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(210 25% 7.8431%);
+  --primary: hsl(252 47% 54%);
+  --primary-foreground: hsl(0 0% 100%);
+  --primary-container: hsl(272 73% 91%);
+  --on-primary-container: hsl(262 100% 18%);
+  --secondary: hsl(258 14% 44%);
+  --secondary-foreground: hsl(0 0% 100%);
+  --secondary-container: hsl(272 22% 87%);
+  --on-secondary-container: hsl(258 24% 11%);
+  --tertiary: hsl(347 27% 41%);
+  --tertiary-container: hsl(13 100% 91%);
+  --surface: hsl(271 12% 97%);
+  --surface-variant: hsl(270 7% 89%);
+  --on-surface: hsl(258 12% 11%);
+  --on-surface-variant: hsl(264 7% 30%);
+  --outline: hsl(264 5% 48%);
+  --kerala-accent: hsl(14 100% 67%);
+  --muted: hsl(240 1.9608% 90%);
+  --muted-foreground: hsl(210 25% 7.8431%);
+  --accent: hsl(211.5789 51.3514% 92.7451%);
+  --accent-foreground: hsl(203.8863 88.2845% 53.1373%);
+  --destructive: hsl(356.3033 90.5579% 54.3137%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(201.4286 30.4348% 90.9804%);
+  --input: hsl(200 23.0769% 97.4510%);
+  --ring: hsl(202.8169 89.1213% 53.1373%);
+  --chart-1: hsl(203.8863 88.2845% 53.1373%);
+  --chart-2: hsl(159.7826 100% 36.0784%);
+  --chart-3: hsl(42.0290 92.8251% 56.2745%);
+  --chart-4: hsl(147.1429 78.5047% 41.9608%);
+  --chart-5: hsl(341.4894 75.2000% 50.9804%);
+  --font-sans: 'Roboto', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.75rem;
+  --material-radius: 0.75rem;
+  --material-radius-lg: 1rem;
+  --material-radius-xl: 1.75rem;
+  --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+  --shadow-sm: 0px 1px 2px 0px hsl(0 0% 0% / 0.3), 0px 1px 3px 1px hsl(0 0% 0% / 0.15);
+  --shadow: 0px 1px 2px 0px hsl(0 0% 0% / 0.3), 0px 1px 3px 1px hsl(0 0% 0% / 0.15);
+  --shadow-md: 0px 1px 3px 0px hsl(0 0% 0% / 0.3), 0px 4px 8px 3px hsl(0 0% 0% / 0.15);
+  --shadow-lg: 0px 2px 6px 2px hsl(0 0% 0% / 0.15), 0px 8px 24px 4px hsl(0 0% 0% / 0.15);
+  --shadow-xl: 0px 2px 6px 2px hsl(0 0% 0% / 0.15), 0px 8px 24px 4px hsl(0 0% 0% / 0.15);
+  --shadow-2xl: 0px 2px 6px 2px hsl(0 0% 0% / 0.15), 0px 8px 24px 4px hsl(0 0% 0% / 0.15);
+}
+
+.dark {
+  --background: hsl(0 0% 0%);
+  --foreground: hsl(200 6.6667% 91.1765%);
+  --card: hsl(228 9.8039% 10%);
+  --card-foreground: hsl(0 0% 85.0980%);
+  --popover: hsl(0 0% 0%);
+  --popover-foreground: hsl(200 6.6667% 91.1765%);
+  --primary: hsl(252 47% 54%);
+  --primary-foreground: hsl(0 0% 100%);
+  --primary-container: hsl(262 100% 18%);
+  --on-primary-container: hsl(272 73% 91%);
+  --secondary: hsl(195.0000 15.3846% 94.9020%);
+  --secondary-foreground: hsl(210 25% 7.8431%);
+  --muted: hsl(0 0% 9.4118%);
+  --muted-foreground: hsl(210 3.3898% 46.2745%);
+  --accent: hsl(205.7143 70% 7.8431%);
+  --accent-foreground: hsl(203.7736 87.6033% 52.5490%);
+  --destructive: hsl(356.3033 90.5579% 54.3137%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(210 5.2632% 14.9020%);
+  --input: hsl(207.6923 27.6596% 18.4314%);
+  --ring: hsl(202.8169 89.1213% 53.1373%);
+  --chart-1: hsl(203.8863 88.2845% 53.1373%);
+  --chart-2: hsl(159.7826 100% 36.0784%);
+  --chart-3: hsl(42.0290 92.8251% 56.2745%);
+  --chart-4: hsl(147.1429 78.5047% 41.9608%);
+  --chart-5: hsl(341.4894 75.2000% 50.9804%);
+  --font-sans: 'Roboto', sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-surface text-on-surface;
+  }
+}
+
+@layer utilities {
+  .material-shadow {
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .material-shadow-elevated {
+    box-shadow: var(--shadow-md);
+  }
+  
+  .material-shadow-high {
+    box-shadow: var(--shadow-lg);
+  }
+  
+  .material-radius {
+    border-radius: var(--material-radius);
+  }
+  
+  .material-radius-lg {
+    border-radius: var(--material-radius-lg);
+  }
+  
+  .material-radius-xl {
+    border-radius: var(--material-radius-xl);
+  }
+}
