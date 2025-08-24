@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Utility Toolkit – PDF & Text Tools</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="bg-header py-16">
+      <div class="container flex items-center justify-between">
+        <h1>Utility Toolkit</h1>
+        <nav class="tool-nav flex gap-8" aria-label="Main navigation">
+          <button type="button" class="nav-btn btn btn--outline" data-target="pdfRenamer">PDF Renamer</button>
+          <button type="button" class="nav-btn btn btn--outline" data-target="folderExtractor">Folder Path Extractor</button>
+          <button type="button" class="nav-btn btn btn--outline" data-target="textSorter">Text File Sorter</button>
+          <button type="button" class="nav-btn btn btn--outline" data-target="jsonBuilder">Dual Text → JSON</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container py-16">
+      <!-- PDF RENAMER -->
+      <section id="pdfRenamer" class="tool-section" aria-labelledby="pdfRenamer-heading">
+        <h2 id="pdfRenamer-heading" class="mb-8">PDF Renamer</h2>
+        <div class="card mb-8">
+          <div class="card__body flex flex-col gap-16">
+            <!-- Rename Source -->
+            <fieldset class="form-group">
+              <legend class="form-label">Choose rename source</legend>
+              <div class="flex gap-16">
+                <label class="flex gap-4 items-center">
+                  <input type="radio" name="renameSource" value="file" checked />
+                  <span>From Text File</span>
+                </label>
+                <label class="flex gap-4 items-center">
+                  <input type="radio" name="renameSource" value="typed" />
+                  <span>Typed Input</span>
+                </label>
+              </div>
+            </fieldset>
+
+            <!-- Text file input -->
+            <div id="nameFileGroup" class="form-group">
+              <label for="nameFile" class="form-label">Upload text file with names (one per line)</label>
+              <input id="nameFile" type="file" accept=".txt" class="form-control" />
+              <p id="nameCount" class="mt-8 text-secondary" aria-live="polite"></p>
+            </div>
+
+            <!-- Typed string input -->
+            <div id="typedGroup" class="form-group hidden">
+              <label for="typedString" class="form-label">Typed string</label>
+              <input id="typedString" type="text" class="form-control" placeholder="Enter text…" />
+            </div>
+
+            <!-- Rename mode -->
+            <div class="form-group">
+              <label for="renameMode" class="form-label">Rename mode</label>
+              <select id="renameMode" class="form-control">
+                <option value="prefix">Prefix</option>
+                <option value="suffix">Suffix</option>
+                <option value="full">Full Replace</option>
+              </select>
+            </div>
+
+            <!-- PDF files -->
+            <div class="form-group">
+              <label for="pdfFiles" class="form-label">Select PDF files</label>
+              <input id="pdfFiles" type="file" accept="application/pdf" multiple class="form-control" />
+            </div>
+
+            <!-- Options -->
+            <div class="form-group flex items-center gap-8">
+              <input type="checkbox" id="zipAll" />
+              <label for="zipAll">Download as single ZIP</label>
+            </div>
+
+            <button type="button" id="btnRename" class="btn btn--primary btn--full-width">Rename PDFs</button>
+            <div id="renameStatus" class="status mt-8 hidden" aria-live="polite"></div>
+            <div id="renameResults" class="mt-16 flex flex-col gap-8"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FOLDER PATH EXTRACTOR -->
+      <section id="folderExtractor" class="tool-section hidden" aria-labelledby="folderExtractor-heading">
+        <h2 id="folderExtractor-heading" class="mb-8">Folder Path Extractor</h2>
+        <div class="card mb-8">
+          <div class="card__body flex flex-col gap-16">
+            <div class="form-group">
+              <label for="folderPicker" class="form-label">Pick folder(s)</label>
+              <input id="folderPicker" type="file" webkitdirectory directory multiple class="form-control" />
+            </div>
+            <button type="button" id="btnExtractPaths" class="btn btn--primary">Extract Paths</button>
+            <textarea id="pathsArea" rows="10" class="form-control mt-8" readonly></textarea>
+            <button type="button" id="downloadPaths" class="btn btn--outline mt-8 hidden">Download .txt</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TEXT FILE SORTER -->
+      <section id="textSorter" class="tool-section hidden" aria-labelledby="textSorter-heading">
+        <h2 id="textSorter-heading" class="mb-8">Text File Sorter</h2>
+        <div class="card mb-8">
+          <div class="card__body flex flex-col gap-16">
+            <div class="form-group">
+              <label for="singleText" class="form-label">Upload text file</label>
+              <input id="singleText" type="file" accept=".txt" class="form-control" />
+            </div>
+
+            <fieldset class="flex gap-16 flex-wrap form-group">
+              <legend class="sr-only">Sort order</legend>
+              <label class="flex gap-4 items-center">
+                <input type="radio" name="sortCriteria" value="alpha-asc" checked />
+                <span>A → Z</span>
+              </label>
+              <label class="flex gap-4 items-center">
+                <input type="radio" name="sortCriteria" value="alpha-desc" />
+                <span>Z → A</span>
+              </label>
+              <label class="flex gap-4 items-center">
+                <input type="radio" name="sortCriteria" value="len-asc" />
+                <span>Length Asc</span>
+              </label>
+              <label class="flex gap-4 items-center">
+                <input type="radio" name="sortCriteria" value="len-desc" />
+                <span>Length Desc</span>
+              </label>
+            </fieldset>
+            <button type="button" id="btnSort" class="btn btn--primary">Sort</button>
+            <div class="flex gap-16 flex-wrap">
+              <div class="flex-1">
+                <h4>Original</h4>
+                <textarea id="original" rows="10" class="form-control" readonly></textarea>
+              </div>
+              <div class="flex-1">
+                <h4>Sorted</h4>
+                <textarea id="sorted" rows="10" class="form-control" readonly></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DUAL TEXT TO JSON -->
+      <section id="jsonBuilder" class="tool-section hidden" aria-labelledby="jsonBuilder-heading">
+        <h2 id="jsonBuilder-heading" class="mb-8">Dual Text → JSON Builder</h2>
+        <div class="card mb-8">
+          <div class="card__body flex flex-col gap-16">
+            <div class="form-group">
+              <label for="fileA" class="form-label">File A</label>
+              <input id="fileA" type="file" accept=".txt" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label for="fileB" class="form-label">File B</label>
+              <input id="fileB" type="file" accept=".txt" class="form-control" />
+            </div>
+            <p id="fileCountStatus" class="status hidden" aria-live="polite"></p>
+
+            <div id="templateBuilder" class="hidden flex gap-16 flex-wrap items-end">
+              <div class="form-group">
+                <label class="form-label" for="field1">Field 1 name</label>
+                <input id="field1" type="text" class="form-control" value="field1" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="field2">Field 2 name</label>
+                <input id="field2" type="text" class="form-control" value="field2" />
+              </div>
+              <button type="button" id="btnGenerateJSON" class="btn btn--primary" disabled>Generate JSON</button>
+            </div>
+            <pre id="jsonOut" class="hidden"></pre>
+            <button type="button" id="btnDownloadJSON" class="btn btn--outline hidden">Download .json</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
