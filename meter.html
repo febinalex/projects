@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Meter Consumption — Single-file Interactive Chart</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Chart.js v4 and date adapter (date-fns) from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/date-fns@2.30.0/dist/date-fns.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.1/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:18px; background:#f7fafc; color:#0f172a;}
+    .container{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:1fr 360px;gap:18px;}
+    .card{background:white;border-radius:8px;padding:12px;box-shadow:0 6px 18px rgba(2,6,23,0.06);}
+    h1{font-size:20px;margin:0 0 8px}
+    textarea{width:100%;height:230px;font-family:monospace;font-size:13px;padding:8px;border-radius:6px;border:1px solid #e2e8f0}
+    label{display:block;font-size:13px;margin-top:8px}
+    input[type="text"], input[type="date"], input[type="number"], select{width:100%;padding:6px;border-radius:6px;border:1px solid #cbd5e1}
+    .row{display:flex;gap:8px}
+    .row > *{flex:1}
+    .btn{padding:8px 10px;border-radius:6px;border:0;background:#0ea5a4;color:white;cursor:pointer}
+    .btn.secondary{background:#64748b}
+    .small{font-size:13px;color:#475569}
+    .cycles-list{max-height:260px;overflow:auto;padding:6px;border-radius:6px;border:1px solid #e2e8f0}
+    .cycle-item{display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #f1f5f9}
+    .chart-wrap{height:460px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .muted{color:#64748b;font-size:13px}
+    .analysis{margin-top:10px;background:#fbfafb;padding:8px;border-radius:6px;border:1px dashed #e6e6e6}
+    .flex-between{display:flex;justify-content:space-between;align-items:center}
+    @media (max-width:980px){ .container{grid-template-columns:1fr; } .chart-wrap{height:360px}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <div class="card">
+        <div class="flex-between">
+          <h1>Meter Consumption — Billing Cycles (single-file)</h1>
+          <div class="muted">Edit TSV or add points — chart updates live</div>
+        </div>
+
+        <label class="small">Raw TSV data (first row = headers). Columns: Date, Morning Reading, Noon Reading, Evening Reading, Night Reading, Average, Column2, Column1</label>
+        <textarea id="tsvInput"></textarea>
+
+        <div class="controls" style="margin-top:12px">
+          <button class="btn" id="parseBtn">Parse & Update Chart</button>
+          <button class="btn secondary" id="exportCsvBtn">Export computed CSV</button>
+          <button class="btn secondary" id="resetBtn">Reset data</button>
+          <label style="display:flex;align-items:center;gap:6px;margin-left:auto" class="small">
+            <input type="checkbox" id="smoothToggle"> Smooth (3-pt)
+          </label>
+        </div>
+
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+          <div style="flex:1">
+            <label class="small">X axis</label>
+            <select id="xMode">
+              <option value="days">Days since cycle start (numeric)</option>
+              <option value="date">Actual Date (time axis)</option>
+            </select>
+          </div>
+          <div style="width:16px"></div>
+          <div style="flex:1">
+            <label class="small">Y axis</label>
+            <select id="yMode">
+              <option value="reading">Meter reading (raw)</option>
+              <option value="delta_units">Units difference from cycle start (reading - startReading)</option>
+              <option value="days_since">Days since cycle start</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="chart-wrap" style="margin-top:12px">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+
+        <div class="analysis" id="analysisBox">
+          <div class="small"><strong>Analysis</strong></div>
+          <div id="analysisContent" class="small muted">Chart not generated yet.</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h1 style="font-size:16px">Add / Edit a data point</h1>
+        <div style="margin-top:8px" class="small muted">If you add a point it will be appended to data and chart will update.</div>
+        <label>Date</label>
+        <input type="date" id="newDate" />
+
+        <label>Reading (numeric)</label>
+        <input type="number" id="newReading" />
+
+        <label><input type="checkbox" id="newBillFlag" /> Mark as 'Bill Reading' (cycle boundary)</label>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn" id="addPointBtn">Add point</button>
+          <button class="btn secondary" id="applyEditBtn">Apply TSV changes</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <h1 style="font-size:16px">Billing cycles & toggles</h1>
+        <div class="muted" style="font-size:13px;margin-bottom:8px">Toggle individual cycles to show/hide lines</div>
+        <div class="cycles-list" id="cyclesList"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h1 style="font-size:16px">Help & quick actions</h1>
+        <div class="small muted" style="margin-top:6px">
+          • To mark a row as bill reading set the Column1 or Column2 value to 'Bill Reading' in TSV.<br/>
+          • Date format in TSV: use dd Month yyyy (e.g. 13 February 2025) or ISO (2025-02-13).<br/>
+          • X axis 'date' uses chart time axis (requires valid dates).<br/>
+        </div>
+        <div style="margin-top:10px">
+          <button class="btn" id="autoSetDates">Convert selected date format to ISO in TSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+  Implementation notes:
+  - Parses TSV (tabs) from the textarea.
+  - Determines reading value per row with same priority as before: Average, Night, Evening, Noon, Morning, then any numeric found.
+  - Finds bill-reading rows (Column1 or Column2 contains 'bill').
+  - Builds cycles between consecutive bill rows and includes all points whose date is between start and end inclusive.
+  - Renders Chart.js line chart with one dataset per cycle.
+  - Switchable X and Y modes recompute dataset values and update the chart.
+*/
+
+const sampleTSV = `Date\tMorning Reading\tNoon Reading\tEvening Reading\tNight Reading\tAverage\tColumn2\tColumn1
+13 February 2025\t\t1534\t\t\t1534\t\tBill Reading
+15 February 2025\t1542\t\t\t\t1542\t\t
+07 March 2025\t\t\t1639\t\t1639\t\t
+08 March 2025\t\t\t1644\t\t1644\t\t
+23 March 2025\t1706\t\t\t\t1706\t\t
+12 April 2025\t1801\t\t\t\t1801\t\tBill Reading
+13 April 2025\t1807\t\t1811\t\t1809\t\t
+14 April 2025\t\t\t1817\t\t1817\t\t
+15 April 2025\t1821\t\t1825\t\t1823\t\t
+16 April 2025\t\t\t1832\t\t1832\t\t
+19 April 2025\t\t\t1852\t\t1852\t\t
+27 May 2025\t\t\t\t2041\t2041\t\t
+29 May 2025\t\t\t\t2046\t2046\t\t
+13 June 2025\t\t2102\t\t\t2102\t\tBill Reading
+14 June 2025\t\t2108\t\t\t2108\t\t
+15 June 2025\t\t2113\t\t\t2113\t\t
+17 June 2025\t\t2119\t\t\t2119\t\t
+18 June 2025\t2123\t2124\t\t2125\t2124\t\t
+19 June 2025\t2126\t2127\t\t2128\t2127\t\t
+20 June 2025\t\t2131\t\t\t2131\t\t
+21 June 2025\t\t\t2135\t\t2135\t\t
+26 June 2025\t2151\t\t\t\t2151\t\t
+30 June 2025\t2166\t\t\t\t2166\t\t
+04 July 2025\t2180\t\t\t\t2180\t\t
+09 July 2025\t2201\t\t\t\t2201\t\t
+11 July 2025\t\t\t2210\t\t2210\t\t
+14 July 2025\t\t\t2222\t\t2222\t\t
+16 July 2025\t\t\t\t2233\t2233\t\t
+17 July 2025\t2234\t\t\t2236\t2235\t\t
+18 July 2025\t2237\t\t2238\t2239\t2238\t\t
+19 July 2025\t2241\t\t\t\t2241\t\t
+21 July 2025\t\t\t\t2252\t2252\t\t
+22 July 2025\t\t\t\t2255\t2255\t\t
+23 July 2025\t\t\t\t2258\t2258\t\t
+24 July 2025\t\t\t\t2261\t2261\t\t
+25 July 2025\t2263\t\t\t\t2263\t\t
+28 July 2025\t\t\t2279\t\t2279\t\t
+30 July 2025\t\t\t\t2286\t2286\t\t
+31 July 2025\t\t\t\t2289\t2289\t\t
+03 August 2025\t\t\t2299\t\t2299\t\t
+06 August 2025\t\t\t\t2309\t2309\t\t
+10 August 2025\t\t2324\t\t\t2324\t\t
+11 August 2025\t\t\t\t2329\t2329\t\t
+12 August 2025\t\t\t\t2332\t2332\t\tBill Reading
+13 August 2025\t\t\t\t2336\t2336\t\t
+15 August 2025\t2341\t\t\t\t2341\t\t`;
+
+// Initialize UI with sample TSV
+const tsvInput = document.getElementById('tsvInput');
+tsvInput.value = sampleTSV;
+
+const parseBtn = document.getElementById('parseBtn');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
+const resetBtn = document.getElementById('resetBtn');
+const addPointBtn = document.getElementById('addPointBtn');
+const applyEditBtn = document.getElementById('applyEditBtn');
+const newDateInput = document.getElementById('newDate');
+const newReadingInput = document.getElementById('newReading');
+const newBillFlag = document.getElementById('newBillFlag');
+const cyclesListEl = document.getElementById('cyclesList');
+const xModeEl = document.getElementById('xMode');
+const yModeEl = document.getElementById('yMode');
+const smoothToggle = document.getElementById('smoothToggle');
+const analysisContent = document.getElementById('analysisContent');
+const autoSetDatesBtn = document.getElementById('autoSetDates');
+
+let parsedRows = [];  // {Date, ... , _isoDate: Date, _reading: number, _isBill: bool}
+let cycles = [];      // {label, startDate, endDate, startReading, points: [{date,iso,reading,days}]}
+let chart = null;
+
+// Utilities
+function safeParseNumber(s){
+  if (s === undefined || s === null) return null;
+  const cleaned = String(s).replace(/[^0-9.-]/g,'').trim();
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+function tryParseDateFlexible(s){
+  if (!s) return null;
+  // try ISO first
+  const iso = new Date(s);
+  if (!isNaN(iso)) return iso;
+  // try pattern 'DD Month YYYY' (e.g. 13 February 2025)
+  const parts = String(s).trim().split(/\s+/);
+  if (parts.length >= 3) {
+    const day = Number(parts[0]);
+    const monthName = parts[1];
+    const year = Number(parts[2]);
+    const month = new Date(Date.parse(monthName + ' 1, 2000')).getMonth();
+    if (!Number.isNaN(day) && !Number.isNaN(year) && !Number.isNaN(month)){
+      return new Date(year, month, day);
+    }
+  }
+  return null;
+}
+function readTSV(tsv){
+  if (!tsv || !tsv.trim()) return [];
+  const NL = '\n', TAB = '\t';
+  const lines = tsv.trim().split(NL);
+  if (!lines.length) return [];
+  const headers = lines[0].split(TAB).map(h=>h.trim());
+  const rows = [];
+  for (let i=1;i<lines.length;i++){
+    const line = lines[i];
+    if (!line || !line.trim()) continue;
+    const cols = line.split(TAB).map(c=>c.trim());
+    const obj = {};
+    for (let j=0;j<headers.length;j++){
+      obj[headers[j]] = cols[j] ?? '';
+    }
+    // parse date and reading
+    const iso = tryParseDateFlexible(obj['Date']);
+    const reading = (safeParseNumber(obj['Average']) ?? safeParseNumber(obj['Night Reading']) ?? safeParseNumber(obj['Evening Reading']) ?? safeParseNumber(obj['Noon Reading']) ?? safeParseNumber(obj['Morning Reading']));
+    // fallback: any numeric in row
+    let finalReading = reading;
+    if (finalReading == null){
+      for (const k of Object.keys(obj)){
+        const v = safeParseNumber(obj[k]);
+        if (v !== null) { finalReading = v; break; }
+      }
+    }
+    const isBill = ((obj['Column1'] && String(obj['Column1']).toLowerCase().includes('bill')) || (obj['Column2'] && String(obj['Column2']).toLowerCase().includes('bill')));
+    rows.push({...obj, _iso: iso, _reading: finalReading, _isBill: !!isBill});
+  }
+  // sort by date if possible
+  rows.sort((a,b)=>{
+    if (a._iso && b._iso) return a._iso - b._iso;
+    if (a._iso && !b._iso) return -1;
+    if (!a._iso && b._iso) return 1;
+    return 0;
+  });
+  return rows;
+}
+
+function buildCycles(rows){
+  // cycles are between consecutive bill rows that also have a numeric reading
+  const billRows = rows.filter(r=>r._isBill && r._reading !== null && r._iso).sort((a,b)=>a._iso - b._iso);
+  const cyclesOut = [];
+  for (let i=1;i<billRows.length;i++){
+    const start = billRows[i-1];
+    const end = billRows[i];
+    const label = `${start.Date} → ${end.Date}`;
+    const pts = rows.filter(r => r._reading !== null && r._iso && r._iso >= start._iso && r._iso <= end._iso)
+                   .map(r => ({dateStr: r.Date, iso: r._iso, reading: r._reading, days: Math.round((r._iso - start._iso)/(1000*60*60*24))}))
+                   .sort((a,b)=>a.iso - b.iso);
+    cyclesOut.push({label, startDate: start._iso, endDate: end._iso, startReading: start._reading, points: pts});
+  }
+  return cyclesOut;
+}
+
+function makeColor(i){
+  const palette = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd','#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+  return palette[i % palette.length];
+}
+
+function computeDatasets(cycles, xMode, yMode, smooth){
+  // returns datasets ready for Chart.js
+  const datasets = [];
+  cycles.forEach((c, idx) => {
+    if (!c.points || c.points.length===0) return;
+    const pts = c.points.map(p=>{
+      let xVal = (xMode === 'date') ? p.iso : p.days;
+      let yVal;
+      if (yMode === 'reading') yVal = p.reading;
+      else if (yMode === 'delta_units') yVal = (p.reading - c.startReading);
+      else if (yMode === 'days_since') yVal = p.days;
+      return {x: xVal, y: yVal, meta: p};
+    });
+    // smoothing (simple 3-point moving average on y)
+    let finalPts = pts;
+    if (smooth){
+      finalPts = pts.map((p,i)=>{
+        const slice = pts.slice(Math.max(0,i-2), i+1);
+        const avgY = Math.round(slice.reduce((s,v)=>s + (v.y||0), 0)/slice.length);
+        const avgX = (typeof p.x === 'number') ? Math.round(slice.reduce((s,v)=>s + (typeof v.x === 'number'?v.x:0),0)/slice.length) : p.x;
+        return {...p, x: avgX, y: avgY};
+      });
+    }
+    datasets.push({
+      label: c.label,
+      data: finalPts,
+      borderColor: makeColor(idx),
+      backgroundColor: makeColor(idx),
+      tension: 0.15,
+      pointRadius: 3,
+      spanGaps: true,
+      showLine: true,
+    });
+  });
+  return datasets;
+}
+
+function renderChart(){
+  const ctx = document.getElementById('chartCanvas').getContext('2d');
+  const xMode = xModeEl.value;
+  const yMode = yModeEl.value;
+  const smooth = smoothToggle.checked;
+  const datasets = computeDatasets(cycles, xMode, yMode, smooth);
+  // decide x axis config
+  const scales = {};
+  if (xMode === 'date'){
+    scales.x = {
+      type:'time',
+      time: { tooltipFormat: 'dd MMM yyyy', unit: 'day' },
+      title: { display: true, text: 'Date' }
+    };
+  } else {
+    scales.x = {
+      type:'linear',
+      title: { display: true, text: 'Days since cycle start (0 = start)' },
+    };
+  }
+  scales.y = {
+    beginAtZero: false,
+    title: { display: true, text: (yMode === 'reading' ? 'Meter reading' : (yMode === 'delta_units' ? 'Units difference from cycle start' : 'Days since cycle start')) }
+  };
+
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type:'line',
+    data: { datasets },
+    options: {
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: { legend: { display: true, position: 'top' }},
+      scales,
+    }
+  });
+
+  // populate cycles list with toggles
+  cyclesListEl.innerHTML = '';
+  cycles.forEach((c, idx) => {
+    const div = document.createElement('div');
+    div.className = 'cycle-item';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox'; chk.checked = true;
+    chk.addEventListener('change', ()=> {
+      chart.setDatasetVisibility(idx, chk.checked);
+      chart.update();
+    });
+    const colorBox = document.createElement('div');
+    colorBox.style.width='18px'; colorBox.style.height='10px'; colorBox.style.background = makeColor(idx);
+    colorBox.style.borderRadius='3px';
+    const lbl = document.createElement('div');
+    lbl.style.flex = '1';
+    lbl.innerHTML = `<div style="font-size:13px">${c.label}</div><div style="font-size:12px;color:#64748b">points: ${c.points.length} • ${formatDateISO(c.startDate)} → ${formatDateISO(c.endDate)}</div>`;
+    div.appendChild(chk);
+    div.appendChild(colorBox);
+    div.appendChild(lbl);
+    cyclesListEl.appendChild(div);
+  });
+
+  updateAnalysis(yMode);
+}
+
+function updateAnalysis(yMode){
+  if (!cycles || cycles.length===0) {
+    analysisContent.innerText = 'No cycles detected.';
+    return;
+  }
+  const rows = [];
+  let globalMax = -Infinity; let globalMaxCycle = null;
+  cycles.forEach(c=>{
+    // compute max according to yMode
+    let maxVal = -Infinity;
+    c.points.forEach(p=>{
+      let val;
+      if (yMode === 'reading') val = p.reading;
+      else if (yMode === 'delta_units') val = (p.reading - c.startReading);
+      else val = p.days;
+      if (val > maxVal) maxVal = val;
+    });
+    rows.push({label: c.label, maxVal});
+    if (maxVal > globalMax){ globalMax = maxVal; globalMaxCycle = c.label; }
+  });
+  // show analysis
+  let html = `<div>Computed ${rows.length} cycles.</div><ul style="margin:6px 0 0 14px">`;
+  rows.forEach(r=> { html += `<li>${r.label}: max (${yMode}) = <strong>${r.maxVal}</strong></li>`; });
+  html += `</ul><div style="margin-top:8px"><strong>Max overall:</strong> ${globalMax} (cycle: ${globalMaxCycle})</div>`;
+  analysisContent.innerHTML = html;
+}
+
+function formatDateISO(d){
+  if (!d) return '-';
+  const dt = new Date(d);
+  return dt.toLocaleDateString();
+}
+
+// Top-level parse & update workflow
+function parseAndUpdate(){
+  parsedRows = readTSV(tsvInput.value);
+  cycles = buildCycles(parsedRows);
+  renderChart();
+}
+
+// Export computed CSV (cycle,index,label,days,reading,date)
+function exportCSV(){
+  let lines = ['cycle_index,cycle_label,days_since_start,reading,date_iso'];
+  cycles.forEach((c, idx)=>{
+    c.points.forEach(p=>{
+      lines.push([idx+1, `"${c.label.replace(/"/g,'""')}"`, p.days, p.reading, p.iso.toISOString().slice(0,10)].join(','));
+    });
+  });
+  const blob = new Blob([lines.join('\n')], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'computed_cycles.csv'; a.click(); URL.revokeObjectURL(url);
+}
+
+// Add point (from form)
+function addPointFromForm(){
+  const dateVal = newDateInput.value; // YYYY-MM-DD
+  const readingVal = safeParseNumber(newReadingInput.value);
+  if (!dateVal || readingVal === null) {
+    alert('Please provide a valid date and numeric reading.');
+    return;
+  }
+  // convert date input to user's display form
+  const iso = new Date(dateVal + 'T00:00:00');
+  // Append row to TSV in ISO format for simplicity; not perfect but workable
+  // We'll append Date as ISO and put reading into Average column
+  const newRow = `${iso.getFullYear()}-${String(iso.getMonth()+1).padStart(2,'0')}-${String(iso.getDate()).padStart(2,'0')}\t\t\t\t\t${readingVal}\t\t${newBillFlag.checked ? 'Bill Reading' : ''}`;
+  // Add newline to textarea
+  tsvInput.value = tsvInput.value.trim() + '\n' + newRow;
+  // Reparse & update
+  parseAndUpdate();
+  // clear inputs
+  newDateInput.value = ''; newReadingInput.value = ''; newBillFlag.checked = false;
+}
+
+// Apply TSV changes button
+function applyTSVChanges(){
+  parseAndUpdate();
+}
+
+// Reset to sample data
+function resetToSample(){
+  tsvInput.value = sampleTSV;
+  parseAndUpdate();
+}
+
+// Convert 'DD Month YYYY' style to ISO in TSV (best-effort)
+function convertDatesToISO(){
+  const lines = tsvInput.value.split('\n');
+  const header = lines[0];
+  const body = lines.slice(1).map(line => {
+    if (!line.trim()) return line;
+    const cols = line.split('\t');
+    const dateStr = cols[0] || '';
+    const iso = tryParseDateFlexible(dateStr);
+    if (iso) cols[0] = iso.toISOString().slice(0,10);
+    return cols.join('\t');
+  });
+  tsvInput.value = [header].concat(body).join('\n');
+  parseAndUpdate();
+}
+
+// Event bindings
+parseBtn.addEventListener('click', parseAndUpdate);
+exportCsvBtn.addEventListener('click', exportCSV);
+resetBtn.addEventListener('click', resetToSample);
+addPointBtn.addEventListener('click', addPointFromForm);
+applyEditBtn.addEventListener('click', applyTSVChanges);
+xModeEl.addEventListener('change', ()=> parseAndUpdate());
+yModeEl.addEventListener('change', ()=> parseAndUpdate());
+smoothToggle.addEventListener('change', ()=> parseAndUpdate());
+autoSetDatesBtn.addEventListener('click', convertDatesToISO);
+
+// Initial parse
+parseAndUpdate();
+</script>
+</body>
+</html>
